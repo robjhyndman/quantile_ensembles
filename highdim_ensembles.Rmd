@@ -1,0 +1,132 @@
+---
+title: "High-dimensional, quantile forecasting with ensembles"
+author: Rob J Hyndman
+branding: false
+bibliography: refs.bib
+output: MonashEBSTemplates::memo
+numbersections: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, warning=FALSE, message=FALSE)
+
+library(fpp3)
+set.seed(20200723)
+
+if(file.exists("cafe.rds")) {
+  cafe <- readRDS("cafe.rds")
+} else {
+  cafe <- readabs::read_abs(series_id = "A3349870V") %>%
+    select(date, value) %>%
+    mutate(date = yearmonth(date)) %>%
+    as_tsibble(index=date) %>%
+    filter(date >= yearmonth("2006 Jan"),
+           date <= yearmonth("2019 Dec"))
+  saveRDS(cafe,"cafe.rds")
+}
+```
+
+
+# Quantile forecasting
+
+
+
+  * Almost everyone needs probabilistic forecasts whether they realise it or not.
+  * Tools for measuring the accuracy of probabilistic forecasts need to be more widely adopted and understood. CRPS and log scores as two examples.
+  * Tools for handling both probabilistic forecasts and high-dimensional grouped time series are just starting to be developed in the methodological literature. Early adopters have an advantage.
+  
+  
+Quantile (or percentile) forecasting is not difficult. Any statistical forecasting method can be used to produce quantile forecasts by simulation. Suppose we are interested in forecasting the total sales in Australian cafes and we train an ETS model and an ARIMA model [@fpp3] on the data to the end of 2018. Then we can simulate sample paths from these models to obtain many possible "futures". Figure \@ref(fig:samples) shows the last four years of training data and 3 futures generated from each of the two fitted models. 
+
+```{r samples, echo=FALSE, fig.cap="Future sample paths obtained using an ARIMA model and an ETS model for the Australian monthly cafe turnover.", fig.height=4, fig.width=7, dependson='setup'}
+train <- cafe %>% filter(year(date) <= 2018)
+fit <- train %>% 
+  model(
+    ETS = ETS(value),
+    ARIMA = ARIMA(value)
+  )
+future <- fit %>%
+  generate(times=3, h="1 year")
+train %>% filter(year(date) >= 2015) %>% autoplot(value) +
+  #geom_line(data = cafe %>% filter(year(date) == 2019))  +
+  geom_line(data=future %>% mutate(modrep = paste0(.model,.rep)), aes(y=.sim, col=.model, group=c(modrep))) +
+  labs(x="Month", y="Turnover (A$million)") +
+  guides(colour = guide_legend("Model"))
+```
+
+If we repeat this procedure thousands of times for each model, we can obtain a very clear picture of the probability distribution for each future time period. The means of these distributions are the traditional point forecasts. Traditional 95% prediction intervals are equivalent to finding the middle 95% of the futures at each forecast horizon. Using simulations gives us the ability to easily compute any other quantiles. Figure \@ref(fig:quantiles) shows the deciles for the ETS forecasts (i.e., the 10th, 20th, \dots, 90th percentiles).
+
+```{r quantiles, dependson='samples', fig.cap="Deciles for the ETS forecasts for the Australian monthly cafe turnover.", fig.height=4, fig.width=6}
+fit %>%
+  select(ETS) %>%
+  generate(times=1000, h="1 year") %>%
+  as_tibble() %>%
+  group_by(date) %>%
+  summarise(
+    qs = quantile(.sim, seq(from=0.1, to=0.9, by=0.1)), prob=seq(from=0.1, to=0.9, by=0.1)
+  ) %>%
+  ggplot(aes(x=date)) +
+  geom_line(aes(y=value), data=train %>% filter(year(date) >= 2015)) +
+  geom_line(aes(y=value), data=cafe %>% filter(year(date) == 2019)) +
+  geom_line(aes(y=qs, group=prob), col='blue')
+```
+
+Quantile forecasts also allow us to answer many more interesting questions. For example, we may wish to find prediction intervals for the total turnover for the next 12 months. This is surprisingly difficult to handle analytically but trivial using simulations --- we just need to add up the turnover for each of the simulated sample paths, and then find the relevant quantiles. We might also want to find forecast the maximum turnover in any month over the next year. Again, that is a difficult problem analytically, but very easy using simulations. I expect that simulating future sample paths will play an increasingly important role in forecasting practice because it makes difficult problems relatively easy, and allows us to explore what the future might be like in ways that would otherwise be almost impossible.
+
+Most business doing forecasting will be familiar with computing accuracy measures for point forecasts such as MAPE or RMSE values. With quantile forecasts, we need to use some alternative measures. Quantile scores provides a measure of accuracy for each quantile of interest. For example, suppose we are interested in the quantile with probability $p$ for the future time periods, and let this be denoted by $q^{p}_{T+h|T}$, meaning the estimated quantile for time $T+h$ made at time $T$. That is, we expect the observation to be less than this value with probability $p$. For example, an estimate of the 95th percentile would be $q^{0.95}_{T+h|T}$. If $y_{T+h}$ denotes the observation at time $T+h$, then the quantile score is
+$$
+  Q_p = \begin{cases} 
+  (1 - p) \Big(q^{p}_{T+h|T} - y_{T+h}\Big), & \text{if $y_{T+h} < q^{p}_{T+h|T}$}\\ 
+  p \Big(y_{T+h} - q^{p}_{T+h|T}\Big), & \text{if $y_{T+h} \ge q^{p}_{T+h|T}$} \end{cases} 
+$$
+This is sometimes called the "pinball loss function" because a graph of it resembles a pinball table. If $p>0.5$, it gives a heavier penalty when the observation is greater than the estimated quantile than when the observation is less than the estimated quantile. The reverse is true for $p<0.5$. A low value of $Q_p$ indicates a better estimate of the quantile. Usually we would want to average the $Q_p$ values of many forecast horizons in order to assess whether our model is estimating the quantiles accurately.
+
+Often we are interested in the whole forecasting distribution, and then we can average the quantile scores over all values of $p$. This gives what is known as the "Continuous Ranked Probability Score" or CRPS. (For technical reasons, CRPS is usually reported as twice the average quantile score.)
+
+In the Australian cafe example, we can compute the CRPS values over the 12 months of 2019 for each of the ARIMA and ETS models. To make it more interpretable, we can also compute the CRPS for a simple seasonal naive model, and then we can calculate the "skill score" equal to the percentage improvement for ARIMA and ETS over seasonal naive.
+
+```{r crps, dependson='samples'}
+crps <- train %>% 
+  model(
+    ETS = ETS(value),
+    ARIMA = ARIMA(value),
+    SNAIVE = SNAIVE(value)
+  ) %>%
+  forecast(h = "1 year") %>%
+  accuracy(cafe, measures=list(CRPS=CRPS))
+snaive_crps <- crps %>% filter(.model=="SNAIVE") %>% pull(CRPS)
+crps <- crps %>%
+  mutate(skillscore = 100*(1 - CRPS/snaive_crps))
+crps %>%
+  select(-.type) %>%
+  rename(
+    Model = .model,
+    `Skill score` = skillscore
+  ) %>%
+  knitr::kable(booktabs=TRUE, digits=1)
+```
+
+Here, ETS is providing the best quantile forecasts with a skill score of `r sprintf("%.1f", crps %>% filter(.model=="ETS") %>% pull(skillscore))`. 
+
+
+# Ensemble forecasting
+
+For more than 50 years we have known that ensemble forecasting improves forecast accuracy [@Bates1969-dp;@Clemen1989-fz]. Also known as "combination forecasting", ensembles involve using multiple models and combining the results to produce the final forecast. There are several reasons why ensembles work.
+
+  * No model is perfect, and the data did not come from a model. As George Box has put it, “all models are wrong, but some are useful.” Ensembles allow the good features of various models to be included, while reducing the impact of any specific model.
+  * Ensembles decrease the variance of the forecasts [@Hibon2005-cv] by reducing the uncertainty associated with selecting a particular model.
+
+
+Ensembling with probabilistic forecasting is easy via simulated future sample paths.
+
+
+
+
+## High-dimensional forecasting
+
+  * Many problems involve thousands of time series with some kind of grouping structure.
+  * We need software tools and models that are designed to handle these kinds of data.
+  * Most existing tools are set up for univariate time series, or multivariate time series. But the business world is almost always more complicated than that.
+  * Modern time series data bases use a time index and a key structure. -- reference tsibble paper.
+
+

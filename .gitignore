@@ -1,0 +1,4 @@
+*.log
+*_cache
+*_files
+cafe.rds
