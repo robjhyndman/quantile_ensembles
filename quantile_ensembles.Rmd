@@ -31,7 +31,7 @@ if (file.exists("cafe.rds")) {
 
 # Forecasting using possible futures
 
-One way to think about forecasting is that we are describing the possible futures that might occur. 
+One way to think about forecasting is that we are describing the possible futures that might occur.
 
 Suppose we are interested in forecasting the total sales in Australian cafés and we train an ETS model and an ARIMA model [@fpp3] on the data to the end of 2018. Then we can simulate sample paths from these models to obtain many possible "futures". Figure \@ref(fig:samples) shows the last four years of training data and 5 futures generated from each of the two fitted models.
 
@@ -56,7 +56,7 @@ train %>%
   guides(colour = guide_legend("Model"))
 ```
 
-If we repeat this procedure thousands of times for each model, we can obtain a very clear picture of the probability distribution for each future time period. The means of these sample paths are the traditional point forecasts. Traditional 95% prediction intervals are equivalent to finding the middle 95% of the futures at each forecast horizon. 
+If we repeat this procedure thousands of times for each model, we can obtain a very clear picture of the probability distribution for each future time period. The means of these sample paths are the traditional point forecasts. Traditional 95% prediction intervals are equivalent to finding the middle 95% of the futures at each forecast horizon.
 
 Simulated future sample paths also allow us to answer many more interesting questions. For example, we may wish to find prediction intervals for the total turnover for the next 12 months. This is surprisingly difficult to handle analytically but trivial using simulations --- we just need to add up the turnover for each of the simulated sample paths, and then compute the relevant percentiles. We might also want to forecast the maximum turnover in any month over the next year. Again, that is a difficult problem analytically, but very easy using simulations. I expect that simulating future sample paths will play an increasingly important role in forecasting practice because it makes difficult problems relatively easy, and allows us to explore what the future might be like in ways that would otherwise be almost impossible.
 
@@ -66,7 +66,7 @@ Using simulations in forecasting requires a generative statistical model to be u
 
 Almost everyone needs probabilistic forecasts whether they realise it or not. Without some kind of probabilistic forecast or other measure of uncertainty, a point forecast is largely useless as there is no way of knowing how wrong it is likely to be. A simple version of a probabilistic forecast is a prediction interval which is intended to cover the true value with a specified probability. Another type of probabilistic forecast is the notion of "safety stock", which is the additional stock to be ordered above the point forecast in order to meet demand with a specified probability.
 
-A more sophisticated way of producing probabilistic forecasts is to generate quantile forecasts. For example, a 90% quantile forecast is a value which should exceed the true observation 90% of the time, and be less than the true value 10% of the time. Median forecasts are equivalent to 50% quantile forecasts. Prediction intervals are often constructed in this way --- an 80% prediction interval can be based on the 10% and 90% quantile forecasts.  Safety stock can also be computed from quantile forecasts --- set the stock order to be the 95% quantile to ensure your probability of being out-of-stock is 5%.
+A more sophisticated way of producing probabilistic forecasts is to generate quantile forecasts. For example, a 90% quantile forecast is a value which should exceed the true observation 90% of the time, and be less than the true value 10% of the time. Median forecasts are equivalent to 50% quantile forecasts. Prediction intervals are often constructed in this way --- an 80% prediction interval can be based on the 10% and 90% quantile forecasts. Safety stock can also be computed from quantile forecasts --- set the stock order to be the 95% quantile to ensure your probability of being out-of-stock is 5%.
 
 Any statistical forecasting method can be used to produce quantile forecasts by simulation. We simply need to compute the quantiles at each time from the simulated sample paths. Figure \@ref(fig:quantiles) shows the deciles for the ETS forecasts (i.e., the 10th, 20th, \dots, 90th percentiles).
 
@@ -219,15 +219,15 @@ Further improvement has been obtained by taking account of the similarity of the
 
 # Conclusions
 
-I have described several tools for forecasting that are likely to be increasingly used in business forecasting in the future. 
+I have described several tools for forecasting that are likely to be increasingly used in business forecasting in the future.
 
  * Simulated future sample paths allow us to study how the future might evolve, and allow us to answer more complicated forecasting questions than is possible with analytical methods.
  * Quantile forecasts can be produced from these simulated future sample paths and provide a way of quantifying the forecast distributions.
  * Quantile scores allow us to evaluate quantile forecasts. Averaging quantile scores gives the CRPS which allows us to evaluate the whole forecast distribution.
  * Forecast ensembles combine information from multiple models and often provide a better estimate of future uncertainty than any individual model.
  * Forecast combinations are similar to ensembles but also take account of the relationships between the component models. The best forecasts often come from combining models in this way.
- 
+
 
 # Supplements
 
-All the forecasts and calculations produced in this chapter were obtained with the `fable` package for R. The code used is available at ???
+All the forecasts and calculations produced in this chapter were obtained with the `fable` package for R. The code used is available at https://github.com/robjhyndman/quantile_ensembles.
