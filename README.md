@@ -83,23 +83,16 @@ Ensemble combining ETS and ARIMA sample paths
 
 ``` r
 ensemble <- fit %>%
-  select(ETS, ARIMA) %>%
+  select(-SNAIVE) %>%
   generate(times = 10000, h = "1 year") %>%
-  as_tibble() %>%
-  select(-.rep, -.model) %>%
-  nest(sample = -date) %>%
-  group_by(date) %>%
   summarise(
-    .model = "ENSEMBLE",
-    sample = list(unname(unlist(sample)))
+    value = dist_sample(list(.sim)),
+    .mean = mean(value)
   ) %>%
-  ungroup() %>%
   mutate(
-    value = dist_sample(sample),
-    .mean = mean(value),
-  ) %>%
-  select(-sample) %>%
-  as_fable(index = date, key = ".model", distribution = value, response = "value")
+    .model = "ENSEMBLE"
+  ) %>% 
+  as_fable(distribution = value, response = "value")
 #> Warning: The dimnames of the fable's distribution are missing and have been set
 #> to match the response variables.
 ```
@@ -124,6 +117,6 @@ crps %>%
 #> 1 SNAIVE      Test   68.6        0  
 #> 2 ARIMA       Test   32.9       52.0
 #> 3 ETS         Test   31.5       54.0
-#> 4 ENSEMBLE    Test   31.4       54.3
-#> 5 COMBINATION Test   30.9       54.9
+#> 4 COMBINATION Test   30.9       54.9
+#> 5 ENSEMBLE    Test   29.7       56.7
 ```

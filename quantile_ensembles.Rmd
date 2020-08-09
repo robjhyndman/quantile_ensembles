@@ -156,21 +156,14 @@ For the Australian café data, we can combine 10000 simulated sample paths from 
 ensemble <- fit %>%
   select(-SNAIVE) %>%
   generate(times = 10000, h = "1 year") %>%
-  as_tibble() %>%
-  select(-.rep, -.model) %>%
-  nest(sample = -date) %>%
-  group_by(date) %>%
   summarise(
-    .model = "ENSEMBLE",
-    sample = list(unname(unlist(sample)))
+    value = dist_sample(list(.sim)),
+    .mean = mean(value)
   ) %>%
-  ungroup() %>%
   mutate(
-    value = dist_sample(sample),
-    .mean = mean(value),
-  ) %>%
-  select(-sample) %>%
-  as_fable(index = date, key = ".model", distribution = value, response = "value")
+    .model = "ENSEMBLE"
+  ) %>% 
+  as_fable(distribution = value, response = "value")
 ensemble %>%
   accuracy(cafe, measures = list(CRPS = CRPS)) %>%
   mutate(
