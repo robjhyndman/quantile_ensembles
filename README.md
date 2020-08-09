@@ -57,7 +57,7 @@ train %>%
   guides(colour = guide_legend("Model"))
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->
+<img src="man/figures/README-unnamed-chunk-1-1.png" width="100%" />
 
 Figure 2: deciles from ETS model
 
@@ -77,7 +77,7 @@ fit %>%
   labs(x = "Month", y = "Turnover (A$million)")
 ```
 
-![](README_files/figure-gfm/quantiles-1.png)<!-- -->
+<img src="man/figures/README-quantiles-1.png" width="100%" />
 
 Ensemble combining ETS and ARIMA sample paths
 
@@ -100,10 +100,9 @@ ensemble <- fit %>%
   ) %>%
   select(-sample) %>%
   as_fable(index = date, key = ".model", distribution = value, response = "value")
+#> Warning: The dimnames of the fable's distribution are missing and have been set
+#> to match the response variables.
 ```
-
-    ## Warning: The dimnames of the fable's distribution are missing and have been set
-    ## to match the response variables.
 
 CRPS calculations
 
@@ -118,14 +117,13 @@ snaive_crps <- crps %>%
   pull(CRPS)
 crps %>%
   mutate(skillscore = 100 * (1 - CRPS / snaive_crps)) %>%
-  arrange(skillscore) 
+  arrange(skillscore)
+#> # A tibble: 5 x 4
+#>   .model      .type  CRPS skillscore
+#>   <chr>       <chr> <dbl>      <dbl>
+#> 1 SNAIVE      Test   68.6        0  
+#> 2 ARIMA       Test   32.9       52.0
+#> 3 ETS         Test   31.5       54.0
+#> 4 ENSEMBLE    Test   31.4       54.3
+#> 5 COMBINATION Test   30.9       54.9
 ```
-
-    ## # A tibble: 5 x 4
-    ##   .model      .type  CRPS skillscore
-    ##   <chr>       <chr> <dbl>      <dbl>
-    ## 1 SNAIVE      Test   68.6        0  
-    ## 2 ARIMA       Test   32.9       52.0
-    ## 3 ETS         Test   31.5       54.0
-    ## 4 ENSEMBLE    Test   31.4       54.3
-    ## 5 COMBINATION Test   30.9       54.9

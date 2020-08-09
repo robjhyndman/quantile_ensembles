@@ -5,7 +5,17 @@ output: github_document
 
 Book chapter by Rob J Hyndman.
 
-```{r setup, message=FALSE}
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+```{r load, message=FALSE}
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -116,5 +126,5 @@ snaive_crps <- crps %>%
   pull(CRPS)
 crps %>%
   mutate(skillscore = 100 * (1 - CRPS / snaive_crps)) %>%
-  arrange(skillscore) 
+  arrange(skillscore)
 ```
